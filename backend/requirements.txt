@@ -1,0 +1,8 @@
+# backend/requirements.txt
+flask==3.0.0
+flask-cors==4.0.0
+scikit-learn==1.6.1
+nltk==3.9.2
+numpy==2.0.2
+pandas==2.2.2
+gunicorn==21.2.0
