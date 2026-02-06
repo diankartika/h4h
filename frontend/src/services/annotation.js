@@ -1,5 +1,5 @@
 // src/services/annotation.js
-const API_URL = import.meta.env.VITE_ANNOTATION_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_ANNOTATION_API_URL || 'http://localhost:5001';
 
 /**
  * Annotate text with uncertainty markers using the trained model

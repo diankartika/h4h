@@ -1,7 +1,7 @@
 // src/services/firebase.js
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firestore/firestore';
+import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
 
 // Your web app's Firebase configuration

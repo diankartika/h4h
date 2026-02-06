@@ -40,3 +40,7 @@
 .read-the-docs {
   color: #888;
 }
+
+.bg-brand-fuzz {
+  background: radial-gradient(circle at center, rgba(124, 58, 237, 0.2) 0%, rgba(192, 38, 211, 0.1) 40%, white 100%);
+}
