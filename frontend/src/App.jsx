@@ -6,6 +6,7 @@ import { auth } from './services/firebase';
 
 import Splash from './pages/Splash';
 import Onboarding from './pages/Onboarding';
+import OnboardingDetail from './pages/OnboardingDetail';
 import SignIn from './pages/SignIn';
 import MainHome from './pages/MainHome';
 
@@ -19,6 +20,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Splash />} />
         <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/onboarding/2" element={<OnboardingDetail />} />
         <Route path="/signin" element={<SignIn />} />
         {/* Protected Route for the Thesis Interface */}
         <Route path="/home" element={user ? <MainHome /> : <Navigate to="/signin" />} />
