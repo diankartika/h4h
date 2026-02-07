@@ -309,7 +309,7 @@ const OnboardingDetail = () => {
         className="w-full flex justify-center pb-4"
       >
         <button
-          onClick={() => navigate('/onboarding/3')}
+          onClick={() => navigate('/signin')}
           className="flex items-center justify-center gap-1.5 rounded-lg text-white font-semibold text-sm"
           style={{
             width: '83px',
