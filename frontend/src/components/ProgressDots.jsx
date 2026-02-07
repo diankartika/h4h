@@ -1,22 +1,21 @@
-// src/components/ProgressDots.jsx
+// components/ProgressDots.jsx
 import React from 'react';
 
-export const ProgressDots = ({ total = 3, current = 0 }) => {
+export const ProgressDots = ({ total, current }) => {
   return (
-    <div className="flex items-center justify-center gap-2 my-4">
+    <div className="flex items-center gap-2">
       {Array.from({ length: total }).map((_, index) => (
         <div
           key={index}
-          className={`h-2 rounded-full transition-all duration-300 ${
-            index === current
-              ? 'w-8 bg-gradient-button'
-              : 'w-2 bg-gray-300'
-          }`}
-          aria-label={`Step ${index + 1} of ${total}${index === current ? ' (current)' : ''}`}
+          className={`
+            w-2 h-2 rounded-full transition-all duration-300
+            ${index === current 
+              ? 'bg-purple-600 w-6' 
+              : 'bg-gray-300'
+            }
+          `}
         />
       ))}
     </div>
   );
 };
-
-export default ProgressDots;
