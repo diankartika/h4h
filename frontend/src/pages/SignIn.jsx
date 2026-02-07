@@ -19,10 +19,12 @@ export const SignIn = () => {
     
     setLoading(true);
     try {
-      await signInWithGoogle();
-      navigate("/home");
+      const user = await signInWithGoogle();
+      console.log("User signed in:", user);
+      navigate("/home"); // Navigate to home after successful sign-in
     } catch (err) {
-      console.error(err);
+      console.error("Sign-in error:", err);
+      alert("Failed to sign in. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -107,7 +109,7 @@ export const SignIn = () => {
           transition={{ delay: 0.5, duration: 0.5 }}
           onClick={handleSignIn}
           disabled={loading || !agreed}
-          className="flex items-center justify-center gap-3 mb-4"
+          className="flex items-center justify-center gap-3 hover:shadow-md transition-shadow"
           style={{
             width: '227px',
             height: '50px',
@@ -115,7 +117,7 @@ export const SignIn = () => {
             border: '1px solid #DFDFDF',
             background: '#FFF',
             opacity: (!agreed || loading) ? 0.5 : 1,
-            cursor: (!agreed || loading) ? 'not-allowed' : 'pointer'
+            cursor: (!agreed || loading) ? 'not-allowed' : 'pointer',
           }}
         >
           {/* Google logo */}
@@ -128,10 +130,7 @@ export const SignIn = () => {
 
           <span
             style={{
-              width: '164px',
-              height: '17px',
               color: '#000',
-              textAlign: 'center',
               fontFamily: 'Inter',
               fontSize: '14px',
               fontWeight: 600,
@@ -146,18 +145,19 @@ export const SignIn = () => {
           </svg>
         </motion.button>
 
-        {/* Container for checkbox section and privacy link - aligned left */}
+        {/* Checkbox and privacy link container */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.5 }}
-          className="flex flex-col items-start" // <-- Changed to items-start
+          className="flex flex-col items-start mt-4"
           style={{ width: '227px' }}
         >
           {/* Checkbox agreement */}
           <div className="flex items-start gap-2 mb-2">
             <input
               type="checkbox"
+              id="agree-checkbox"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
               className="mt-0.5 flex-shrink-0"
@@ -168,20 +168,22 @@ export const SignIn = () => {
               }}
             />
             <label
+              htmlFor="agree-checkbox"
               style={{
                 flex: 1,
                 color: 'rgba(0, 0, 0, 0.65)',
                 fontFamily: 'Inter',
                 fontSize: '12px',
                 fontWeight: 300,
-                lineHeight: 'normal'
+                lineHeight: 'normal',
+                cursor: 'pointer'
               }}
             >
               By continuing, you agree to participate in this research study
             </label>
           </div>
 
-          {/* Learn about data privacy link - aligned with text */}
+          {/* Learn about data privacy link */}
           <button
             onClick={() => setShowPrivacyModal(true)}
             style={{
@@ -196,7 +198,7 @@ export const SignIn = () => {
               background: 'none',
               border: 'none',
               padding: 0,
-              marginLeft: 'calc(15px + 8px)' // 15px checkbox + 8px gap (sesuai gap-2)
+              marginLeft: 'calc(15px + 8px)'
             }}
           >
             Learn about data privacy
@@ -238,7 +240,6 @@ export const SignIn = () => {
 
               {/* Scrollable content */}
               <div className="overflow-y-auto h-full p-6" style={{ maxHeight: '383px' }}>
-                {/* Title */}
                 <h3
                   className="mb-2"
                   style={{
@@ -252,7 +253,6 @@ export const SignIn = () => {
                   Learn About Data Privacy
                 </h3>
 
-                {/* Subtitle */}
                 <p
                   className="mb-4"
                   style={{
@@ -266,7 +266,6 @@ export const SignIn = () => {
                   This is a research project
                 </p>
 
-                {/* Content */}
                 <div
                   style={{
                     color: 'rgba(0, 0, 0, 0.80)',
