@@ -1,3 +1,4 @@
+// MainHome.jsx - Updated with Guide Modal
 import React, { useState, useEffect, useRef } from 'react';
 import { auth, db } from '../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -5,12 +6,33 @@ import { generateAnswer } from '../services/gemini';
 import { annotateText } from '../services/annotation';
 import MarkerBadge from '../components/MarkerBadge';
 import { Send, History, Info, LogOut } from 'lucide-react';
+import { GuideModal } from '../components/GuideModal'; // Add this import
+import logoShort from '../assets/logo-short.png'; // Add this import
 
 const MainHome = () => {
   const [question, setQuestion] = useState('');
   const [chat, setChat] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [showGuide, setShowGuide] = useState(false); // Add this
+  const [hasSeenGuide, setHasSeenGuide] = useState(false); // Add this
   const scrollRef = useRef(null);
+
+  // Add this useEffect for guide
+  useEffect(() => {
+    const seenGuide = localStorage.getItem('h4h_seen_guide');
+    if (!seenGuide) {
+      setShowGuide(true);
+    } else {
+      setHasSeenGuide(true);
+    }
+  }, []);
+
+  // Add this handler
+  const handleCloseGuide = () => {
+    setShowGuide(false);
+    setHasSeenGuide(true);
+    localStorage.setItem('h4h_seen_guide', 'true');
+  };
 
   const handleSend = async () => {
     if (!question.trim()) return;
@@ -21,10 +43,7 @@ const MainHome = () => {
     setIsTyping(true);
 
     try {
-      // 1. Get raw answer from Gemini
       const raw = await generateAnswer(userQuery);
-      
-      // 2. Get annotations from your Flask Backend
       const annotatedData = await annotateText(raw);
 
       const newResponse = {
@@ -36,7 +55,6 @@ const MainHome = () => {
 
       setChat(prev => [...prev, newResponse]);
 
-      // 3. Save to Firestore for Thesis History
       await addDoc(collection(db, 'questions'), {
         userId: auth.currentUser.uid,
         questionText: userQuery,
@@ -54,10 +72,21 @@ const MainHome = () => {
 
   return (
     <div className="flex flex-col h-screen bg-white max-w-md mx-auto border-x shadow-sm">
-      {/* Header matching Figma */}
+      {/* Header - Updated with Guide button */}
       <header className="p-4 flex justify-between items-center border-b bg-white sticky top-0 z-10">
-        <h1 className="text-xl font-bold bg-gradient-h4h bg-clip-text text-transparent italic">h4h</h1>
-        <div className="flex gap-4 text-gray-400">
+        <div className="flex items-center gap-2">
+          <img src={logoShort} alt="h4h" className="w-8 h-8" />
+          <h1 className="text-xl font-bold bg-gradient-h4h bg-clip-text text-transparent italic">h4h</h1>
+        </div>
+        <div className="flex gap-3 text-gray-400">
+          {/* Guide button */}
+          <button
+            onClick={() => setShowGuide(true)}
+            className="flex items-center gap-1 hover:text-purple-600 transition-colors"
+            title="Open Guide"
+          >
+            <Info size={20} />
+          </button>
           <History size={20} className="cursor-pointer hover:text-purple-600" />
           <LogOut size={20} className="cursor-pointer hover:text-red-500" onClick={() => auth.signOut()} />
         </div>
@@ -70,7 +99,7 @@ const MainHome = () => {
              <div className="w-16 h-16 rounded-3xl bg-purple-50 flex items-center justify-center mb-4">
                 <span className="text-2xl">✨</span>
              </div>
-             <h2 className="text-2xl font-bold text-gray-900">Welcome to human</h2>
+             <h2 className="text-2xl font-bold text-gray-900">Welcome to human4human</h2>
              <p className="text-gray-500 mt-2">Start a conversation to see uncertainty markers in action.</p>
           </div>
         )}
@@ -84,7 +113,7 @@ const MainHome = () => {
             }`}>
               {msg.role === 'assistant' ? (
                 <div className="space-y-4">
-                  <p className="leading-relaxed">{/* Logic to render MarkerBadges inline */}</p>
+                  <p className="leading-relaxed">{msg.text}</p>
                   {msg.footnotes && (
                     <div className="mt-4 pt-3 border-t border-purple-200">
                       <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Footnotes</p>
@@ -104,7 +133,7 @@ const MainHome = () => {
         <div ref={scrollRef} />
       </main>
 
-      {/* Input Field matching Figma */}
+      {/* Input Field */}
       <div className="p-4 bg-white border-t fixed bottom-0 w-full max-w-md">
         <div className="relative flex items-center">
           <input
@@ -123,6 +152,12 @@ const MainHome = () => {
           </button>
         </div>
       </div>
+
+      {/* Guide Modal - Add this */}
+      <GuideModal 
+        isOpen={showGuide} 
+        onClose={handleCloseGuide}
+      />
     </div>
   );
 };

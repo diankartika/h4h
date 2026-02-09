@@ -23,6 +23,7 @@ function App() {
         <Route path="/onboarding/2" element={<OnboardingDetail />} />
         <Route path="/signin" element={<SignIn />} />
         {/* Protected Route for the Thesis Interface */}
+        <Route path="/test" element={<MainHome />} />
         <Route path="/home" element={user ? <MainHome /> : <Navigate to="/signin" />} />
       </Routes>
     </BrowserRouter>
