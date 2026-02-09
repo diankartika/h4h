@@ -64,31 +64,34 @@ export const GuideModal = ({ isOpen, onClose, startPage = 0 }) => {
             background: '#FEFAFF'
         }}
         >
-          {/* Header with guidebook icon, title, and close */}
-          <div className="absolute top-3 left-4 right-4 flex justify-between items-center z-10">
-            <div className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="12" viewBox="0 0 10 12" fill="none">
-                <path d="M8.75 0H1.25C0.5625 0 0 0.54 0 1.2V10.8C0 11.46 0.5625 12 1.25 12H8.75C9.4375 12 10 11.46 10 10.8V1.2C10 0.54 9.4375 0 8.75 0ZM1.25 1.2H4.375V6L2.8125 5.1L1.25 6V1.2Z" fill="black"/>
-              </svg>
-              <span
+        {/* Header with guidebook icon and close */}
+        <div className="absolute top-3 left-4 right-4 flex justify-between items-center z-10">
+        <div className="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="12" viewBox="0 0 10 12" fill="none">
+            <path d="M8.75 0H1.25C0.5625 0 0 0.54 0 1.2V10.8C0 11.46 0.5625 12 1.25 12H8.75C9.4375 12 10 11.46 10 10.8V1.2C10 0.54 9.4375 0 8.75 0ZM1.25 1.2H4.375V6L2.8125 5.1L1.25 6V1.2Z" fill="black"/>
+            </svg>
+            {/* Only show title on page 1 */}
+            {currentPage === 0 && (
+            <span
                 style={{
-                  color: '#000',
-                  fontFamily: 'Inter',
-                  fontSize: '10px',
-                  fontWeight: 400,
-                  lineHeight: 'normal'
+                color: '#000',
+                fontFamily: 'Inter',
+                fontSize: '10px',
+                fontWeight: 400,
+                lineHeight: 'normal'
                 }}
-              >
-                Quick Guide to h4h
-              </span>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-lg font-bold text-gray-700 hover:text-gray-900"
             >
-              ✕
-            </button>
-          </div>
+                Quick Guide to h4h
+            </span>
+            )}
+        </div>
+        <button
+            onClick={onClose}
+            className="text-lg font-bold text-gray-700 hover:text-gray-900"
+        >
+            ✕
+        </button>
+        </div>
 
             {/* Scrollable Content */}
             <div className="overflow-y-auto h-full px-6 pt-12 pb-16" style={{ maxHeight: '400px' }}>
