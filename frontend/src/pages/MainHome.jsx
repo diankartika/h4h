@@ -1,4 +1,4 @@
-// MainHome.jsx - Updated with Guide Modal
+// pages/MainHome.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { auth, db } from '../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -6,18 +6,18 @@ import { generateAnswer } from '../services/gemini';
 import { annotateText } from '../services/annotation';
 import MarkerBadge from '../components/MarkerBadge';
 import { Send, History, Info, LogOut } from 'lucide-react';
-import { GuideModal } from '../components/GuideModal'; // Add this import
-import logoShort from '../assets/logo-short.png'; // Add this import
+import GuideModal from '../components/GuideModal'; // Updated import
+import logoShort from '../assets/logo-short.png';
 
 const MainHome = () => {
   const [question, setQuestion] = useState('');
   const [chat, setChat] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [showGuide, setShowGuide] = useState(false); // Add this
-  const [hasSeenGuide, setHasSeenGuide] = useState(false); // Add this
+  const [showGuide, setShowGuide] = useState(false);
+  const [hasSeenGuide, setHasSeenGuide] = useState(false);
   const scrollRef = useRef(null);
 
-  // Add this useEffect for guide
+  // Check if user has seen guide before
   useEffect(() => {
     const seenGuide = localStorage.getItem('h4h_seen_guide');
     if (!seenGuide) {
@@ -27,7 +27,6 @@ const MainHome = () => {
     }
   }, []);
 
-  // Add this handler
   const handleCloseGuide = () => {
     setShowGuide(false);
     setHasSeenGuide(true);
@@ -43,7 +42,10 @@ const MainHome = () => {
     setIsTyping(true);
 
     try {
+      // 1. Get raw answer from Gemini
       const raw = await generateAnswer(userQuery);
+      
+      // 2. Get annotations from your Flask Backend
       const annotatedData = await annotateText(raw);
 
       const newResponse = {
@@ -55,6 +57,7 @@ const MainHome = () => {
 
       setChat(prev => [...prev, newResponse]);
 
+      // 3. Save to Firestore for Thesis History
       await addDoc(collection(db, 'questions'), {
         userId: auth.currentUser.uid,
         questionText: userQuery,
@@ -72,7 +75,7 @@ const MainHome = () => {
 
   return (
     <div className="flex flex-col h-screen bg-white max-w-md mx-auto border-x shadow-sm">
-      {/* Header - Updated with Guide button */}
+      {/* Header */}
       <header className="p-4 flex justify-between items-center border-b bg-white sticky top-0 z-10">
         <div className="flex items-center gap-2">
           <img src={logoShort} alt="h4h" className="w-8 h-8" />
@@ -82,7 +85,7 @@ const MainHome = () => {
           {/* Guide button */}
           <button
             onClick={() => setShowGuide(true)}
-            className="flex items-center gap-1 hover:text-purple-600 transition-colors"
+            className="hover:text-purple-600 transition-colors"
             title="Open Guide"
           >
             <Info size={20} />
@@ -153,7 +156,7 @@ const MainHome = () => {
         </div>
       </div>
 
-      {/* Guide Modal - Add this */}
+      {/* Guide Modal */}
       <GuideModal 
         isOpen={showGuide} 
         onClose={handleCloseGuide}
