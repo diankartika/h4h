@@ -5,6 +5,8 @@ import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'fire
 import { generateAnswer } from '../services/gemini';
 import { annotateText } from '../services/annotation';
 import GuideModal from '../components/GuideModal';
+import FootnoteModal from '../components/FootnoteModal';
+import HistorySidebar from '../components/HistorySidebar';
 import logoShort from '../assets/logo-short.png';
 import logoSmall from '../assets/logo-small.png';
 
@@ -18,7 +20,8 @@ const MainHome = () => {
   const [showGuide, setShowGuide] = useState(false);
   const [hasSeenGuide, setHasSeenGuide] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
-  const [expandedFootnotes, setExpandedFootnotes] = useState({});
+  const [selectedFootnotes, setSelectedFootnotes] = useState(null);
+  const [showFootnoteModal, setShowFootnoteModal] = useState(false);
   const scrollRef = useRef(null);
 
   // Check if user has seen guide before
@@ -52,12 +55,12 @@ const MainHome = () => {
     localStorage.setItem('h4h_seen_guide', 'true');
   };
 
-  const toggleFootnotes = (index) => {
-    setExpandedFootnotes(prev => ({
-      ...prev,
-      [index]: !prev[index]
-    }));
+  const handleFootnoteClick = (footnotes) => {
+    setSelectedFootnotes(footnotes);
+    setShowFootnoteModal(true);
   };
+
+  const [showHistory, setShowHistory] = useState(false);
 
   const handleSend = async () => {
     if (!question.trim()) return;
@@ -107,7 +110,10 @@ const MainHome = () => {
         {/* Left side - History and Logo */}
         <div className="flex flex-col gap-8">
           <div className="flex items-center gap-2">
-            <button className="flex flex-col items-center gap-1">
+            <button 
+              onClick={() => setShowHistory(true)}
+              className="flex flex-col items-center gap-1"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="21" viewBox="0 0 18 21" fill="none">
                 <path d="M8.92279 1.97591C9.18529 1.18841 8.75873 0.339975 7.97591 0.077475C7.1931 -0.185025 6.33998 0.241538 6.07748 1.02435L0.0774751 19.0244C-0.185025 19.8119 0.241537 20.6603 1.02435 20.9228C1.80716 21.1853 2.66029 20.7587 2.92279 19.9759L8.92279 1.97591ZM12.2462 0.0212252C11.4306 -0.114712 10.6572 0.438412 10.5212 1.25404L7.52122 19.254C7.38529 20.0697 7.93841 20.8431 8.75404 20.979C9.56966 21.115 10.3431 20.5619 10.479 19.7462L13.479 1.74623C13.615 0.9306 13.0618 0.157163 12.2462 0.0212252ZM16.4978 0.00247509C15.6681 0.00247509 14.9978 0.672788 14.9978 1.50248V19.5025C14.9978 20.3322 15.6681 21.0025 16.4978 21.0025C17.3275 21.0025 17.9978 20.3322 17.9978 19.5025V1.50248C17.9978 0.672788 17.3275 0.00247509 16.4978 0.00247509Z" fill="black"/>
               </svg>
@@ -212,85 +218,39 @@ const MainHome = () => {
 
                     {/* Footnote details button */}
                     {msg.footnotes && msg.footnotes.length > 0 && (
-                      <div>
-                        <button
-                          onClick={() => toggleFootnotes(i)}
-                          className="flex items-center gap-2"
+                      <button
+                        onClick={() => handleFootnoteClick(msg.footnotes)}
+                        className="flex items-center gap-2"
+                        style={{
+                          width: '142px',
+                          height: '26px',
+                          borderRadius: '8px',
+                          border: '1px solid #A0A0A0',
+                          padding: '0 12px',
+                          background: 'white'
+                        }}
+                      >
+                        <span
                           style={{
-                            width: '142px',
-                            height: '26px',
-                            borderRadius: '8px',
-                            border: '1px solid #A0A0A0',
-                            padding: '0 12px',
-                            background: 'white'
+                            color: '#000',
+                            fontFamily: 'Inter',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            lineHeight: 'normal'
                           }}
                         >
-                          <span
-                            style={{
-                              color: '#000',
-                              fontFamily: 'Inter',
-                              fontSize: '12px',
-                              fontWeight: 500,
-                              lineHeight: 'normal'
-                            }}
-                          >
-                            footnote details
-                          </span>
-                          <svg 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            width="13" 
-                            height="8" 
-                            viewBox="0 0 13 8" 
-                            fill="none"
-                            style={{
-                              transform: expandedFootnotes[i] ? 'rotate(180deg)' : 'rotate(0deg)',
-                              transition: 'transform 0.2s'
-                            }}
-                          >
-                            <path d="M11.91 2.19345e-05L12.97 1.06102L7.193 6.84002C7.10043 6.93318 6.99036 7.0071 6.86911 7.05755C6.74786 7.108 6.61783 7.13397 6.4865 7.13397C6.35517 7.13397 6.22514 7.108 6.10389 7.05755C5.98264 7.0071 5.87257 6.93318 5.78 6.84002L0 1.06102L1.06 0.00102186L6.485 5.42502L11.91 2.19345e-05Z" fill="#A0A0A0"/>
-                          </svg>
-                        </button>
-
-                        {/* Expanded footnotes */}
-                        {expandedFootnotes[i] && (
-                          <div 
-                            className="mt-2 px-4 py-3"
-                            style={{
-                              borderRadius: '8px',
-                              background: '#F9F9F9',
-                              border: '1px solid #E0E0E0'
-                            }}
-                          >
-                            <p 
-                              className="mb-2"
-                              style={{
-                                color: '#000',
-                                fontFamily: 'Inter',
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                textTransform: 'uppercase'
-                              }}
-                            >
-                              Footnotes
-                            </p>
-                            {msg.footnotes.map(fn => (
-                              <p 
-                                key={fn.id} 
-                                className="mb-2"
-                                style={{
-                                  color: '#000',
-                                  fontFamily: 'Inter',
-                                  fontSize: '10px',
-                                  fontWeight: 400,
-                                  lineHeight: '14px'
-                                }}
-                              >
-                                <span style={{ fontWeight: 600 }}>({fn.id})</span> {fn.explanation}
-                              </p>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                          footnote details
+                        </span>
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          width="13" 
+                          height="8" 
+                          viewBox="0 0 13 8" 
+                          fill="none"
+                        >
+                          <path d="M11.91 2.19345e-05L12.97 1.06102L7.193 6.84002C7.10043 6.93318 6.99036 7.0071 6.86911 7.05755C6.74786 7.108 6.61783 7.13397 6.4865 7.13397C6.35517 7.13397 6.22514 7.108 6.10389 7.05755C5.98264 7.0071 5.87257 6.93318 5.78 6.84002L0 1.06102L1.06 0.00102186L6.485 5.42502L11.91 2.19345e-05Z" fill="#A0A0A0"/>
+                        </svg>
+                      </button>
                     )}
                   </div>
                 )}
@@ -420,6 +380,19 @@ const MainHome = () => {
       <GuideModal 
         isOpen={showGuide} 
         onClose={handleCloseGuide}
+      />
+
+      {/* Footnote Modal */}
+      <FootnoteModal 
+        isOpen={showFootnoteModal}
+        onClose={() => setShowFootnoteModal(false)}
+        footnotes={selectedFootnotes}
+      />
+
+      {/* History Sidebar */}
+      <HistorySidebar 
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
       />
     </div>
   );
