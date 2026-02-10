@@ -103,12 +103,13 @@ const MainHome = () => {
     window.open(FEEDBACK_FORM_URL, '_blank');
   };
 
+  // pages/MainHome.jsx - Make fully responsive
   return (
-    <div className="flex flex-col h-screen bg-white max-w-md mx-auto">
+    <div className="flex flex-col h-screen bg-white w-full max-w-md mx-auto relative">
       {/* Header */}
-      <header className="px-6 py-4 flex justify-between items-start">
+      <header className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-start">
         {/* Left side - History and Logo */}
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-6 sm:gap-8">
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setShowHistory(true)}
@@ -145,8 +146,6 @@ const MainHome = () => {
           </svg>
           <span
             style={{
-              width: '31px',
-              height: '12px',
               color: '#000',
               fontFamily: 'Inter',
               fontSize: '10px',
@@ -160,13 +159,13 @@ const MainHome = () => {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto px-6 pb-24 pt-8">
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 pb-24 pt-6 sm:pt-8">
         {chat.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center">
+          <div className="h-full flex flex-col items-center justify-center text-center px-4">
             <h1
+              className="text-xl sm:text-2xl"
               style={{
                 fontFamily: 'Inter',
-                fontSize: '24px',
                 fontWeight: 400,
                 lineHeight: 'normal',
                 background: 'linear-gradient(90deg, #000 0%, #715579 19.23%, #459DEA 50%, #5CC5A2 80.29%, #B652D1 94.71%)',
@@ -179,13 +178,12 @@ const MainHome = () => {
             </h1>
           </div>
         ) : (
-          <div className="w-full space-y-4">
+          <div className="w-full space-y-3 sm:space-y-4">
             {chat.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'user' ? (
-                  /* User message bubble */
                   <div
-                    className="max-w-[80%] px-4 py-3"
+                    className="max-w-[85%] px-3 py-2 sm:px-4 sm:py-3"
                     style={{
                       borderRadius: '8px',
                       background: 'rgba(243, 198, 255, 0.45)',
@@ -199,10 +197,9 @@ const MainHome = () => {
                     {msg.text}
                   </div>
                 ) : (
-                  /* AI response */
-                  <div className="max-w-[85%] space-y-2">
+                  <div className="max-w-[90%] space-y-2">
                     <div
-                      className="px-4 py-3"
+                      className="px-3 py-2 sm:px-4 sm:py-3"
                       style={{
                         borderRadius: '8px',
                         background: '#F5F5F5',
@@ -216,7 +213,6 @@ const MainHome = () => {
                       {msg.text}
                     </div>
 
-                    {/* Footnote details button */}
                     {msg.footnotes && msg.footnotes.length > 0 && (
                       <button
                         onClick={() => handleFootnoteClick(msg.footnotes)}
@@ -271,12 +267,10 @@ const MainHome = () => {
               </div>
             )}
 
-            {/* Limit reached message */}
             {questionCount >= QUESTION_LIMIT && (
               <div
-                className="p-4"
+                className="p-3 sm:p-4 w-full max-w-[339px]"
                 style={{
-                  width: '339px',
                   borderRadius: '8px',
                   background: '#CEEEE4'
                 }}
@@ -321,19 +315,20 @@ const MainHome = () => {
       </main>
 
       {/* Input area - fixed at bottom */}
-      <div className="px-6 pb-6 fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white">
+      <div className="px-4 sm:px-6 pb-4 sm:pb-6 fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto bg-white">
         <div
-          className="relative flex items-center"
+          className="relative flex items-center w-full"
           style={{
-            width: '344px',
+            maxWidth: '344px',
             height: '44px',
             borderRadius: '22px',
             border: '1px solid #DFDFDF',
             background: '#FFF',
-            padding: '0 12px'
+            padding: '0 12px',
+            margin: '0 auto'
           }}
         >
-          <img src={logoSmall} alt="h4h" className="w-6 h-6 mr-2" />
+          <img src={logoSmall} alt="h4h" className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
           <input
             type="text"
             className="flex-1 bg-transparent border-none outline-none"
@@ -376,6 +371,12 @@ const MainHome = () => {
         </div>
       </div>
 
+      {/* History Sidebar */}
+      <HistorySidebar 
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+      />
+
       {/* Guide Modal */}
       <GuideModal 
         isOpen={showGuide} 
@@ -387,12 +388,6 @@ const MainHome = () => {
         isOpen={showFootnoteModal}
         onClose={() => setShowFootnoteModal(false)}
         footnotes={selectedFootnotes}
-      />
-
-      {/* History Sidebar */}
-      <HistorySidebar 
-        isOpen={showHistory}
-        onClose={() => setShowHistory(false)}
       />
     </div>
   );
