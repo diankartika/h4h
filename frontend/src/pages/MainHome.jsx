@@ -1,13 +1,15 @@
 // pages/MainHome.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { auth, db } from '../services/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { generateAnswer } from '../services/gemini';
 import { annotateText } from '../services/annotation';
-import MarkerBadge from '../components/MarkerBadge';
 import GuideModal from '../components/GuideModal';
 import logoShort from '../assets/logo-short.png';
 import logoSmall from '../assets/logo-small.png';
+
+const QUESTION_LIMIT = 5;
+const FEEDBACK_FORM_URL = "https://forms.google.com/your-form-url"; // Replace with your actual form URL
 
 const MainHome = () => {
   const [question, setQuestion] = useState('');
@@ -15,6 +17,8 @@ const MainHome = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [hasSeenGuide, setHasSeenGuide] = useState(false);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [expandedFootnotes, setExpandedFootnotes] = useState({});
   const scrollRef = useRef(null);
 
   // Check if user has seen guide before
@@ -27,14 +31,37 @@ const MainHome = () => {
     }
   }, []);
 
+  // Get question count
+  useEffect(() => {
+    const getQuestionCount = async () => {
+      if (auth.currentUser) {
+        const q = query(
+          collection(db, 'questions'),
+          where('userId', '==', auth.currentUser.uid)
+        );
+        const querySnapshot = await getDocs(q);
+        setQuestionCount(querySnapshot.size);
+      }
+    };
+    getQuestionCount();
+  }, [chat]);
+
   const handleCloseGuide = () => {
     setShowGuide(false);
     setHasSeenGuide(true);
     localStorage.setItem('h4h_seen_guide', 'true');
   };
 
+  const toggleFootnotes = (index) => {
+    setExpandedFootnotes(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
   const handleSend = async () => {
     if (!question.trim()) return;
+    if (questionCount >= QUESTION_LIMIT) return;
 
     const userQuery = question;
     setQuestion('');
@@ -69,21 +96,22 @@ const MainHome = () => {
     }
   };
 
+  const handleFeedback = () => {
+    window.open(FEEDBACK_FORM_URL, '_blank');
+  };
+
   return (
     <div className="flex flex-col h-screen bg-white max-w-md mx-auto">
       {/* Header */}
       <header className="px-6 py-4 flex justify-between items-start">
         {/* Left side - History and Logo */}
         <div className="flex flex-col gap-8">
-          {/* History icon with text */}
           <div className="flex items-center gap-2">
             <button className="flex flex-col items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="21" viewBox="0 0 18 21" fill="none">
                 <path d="M8.92279 1.97591C9.18529 1.18841 8.75873 0.339975 7.97591 0.077475C7.1931 -0.185025 6.33998 0.241538 6.07748 1.02435L0.0774751 19.0244C-0.185025 19.8119 0.241537 20.6603 1.02435 20.9228C1.80716 21.1853 2.66029 20.7587 2.92279 19.9759L8.92279 1.97591ZM12.2462 0.0212252C11.4306 -0.114712 10.6572 0.438412 10.5212 1.25404L7.52122 19.254C7.38529 20.0697 7.93841 20.8431 8.75404 20.979C9.56966 21.115 10.3431 20.5619 10.479 19.7462L13.479 1.74623C13.615 0.9306 13.0618 0.157163 12.2462 0.0212252ZM16.4978 0.00247509C15.6681 0.00247509 14.9978 0.672788 14.9978 1.50248V19.5025C14.9978 20.3322 15.6681 21.0025 16.4978 21.0025C17.3275 21.0025 17.9978 20.3322 17.9978 19.5025V1.50248C17.9978 0.672788 17.3275 0.00247509 16.4978 0.00247509Z" fill="black"/>
               </svg>
             </button>
-
-            {/* human4human logo text */}
             <span
               style={{
                 fontFamily: 'Inter',
@@ -126,12 +154,10 @@ const MainHome = () => {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6">
+      <main className="flex-1 overflow-y-auto px-6 pb-24 pt-8">
         {chat.length === 0 ? (
-          <div className="flex flex-col items-center text-center">
-            {/* Main heading with gradient */}
+          <div className="h-full flex flex-col items-center justify-center text-center">
             <h1
-              className="mb-8"
               style={{
                 fontFamily: 'Inter',
                 fontSize: '24px',
@@ -150,37 +176,192 @@ const MainHome = () => {
           <div className="w-full space-y-4">
             {chat.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`p-4 rounded-3xl max-w-[85%] ${
-                  msg.role === 'user' 
-                    ? 'bg-purple-600 text-white rounded-tr-none' 
-                    : 'bg-purple-50 text-gray-800 rounded-tl-none border border-purple-100'
-                }`}>
-                  {msg.role === 'assistant' ? (
-                    <div className="space-y-4">
-                      <p className="leading-relaxed">{msg.text}</p>
-                      {msg.footnotes && (
-                        <div className="mt-4 pt-3 border-t border-purple-200">
-                          <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Footnotes</p>
-                          {msg.footnotes.map(fn => (
-                            <p key={fn.id} className="text-xs text-gray-500 mb-1">
-                              <span className="font-bold">({fn.id})</span> {fn.explanation}
-                            </p>
-                          ))}
-                        </div>
-                      )}
+                {msg.role === 'user' ? (
+                  /* User message bubble */
+                  <div
+                    className="max-w-[80%] px-4 py-3"
+                    style={{
+                      borderRadius: '8px',
+                      background: 'rgba(243, 198, 255, 0.45)',
+                      color: '#000',
+                      fontFamily: 'Inter',
+                      fontSize: '12px',
+                      fontWeight: 400,
+                      lineHeight: '16px'
+                    }}
+                  >
+                    {msg.text}
+                  </div>
+                ) : (
+                  /* AI response */
+                  <div className="max-w-[85%] space-y-2">
+                    <div
+                      className="px-4 py-3"
+                      style={{
+                        borderRadius: '8px',
+                        background: '#F5F5F5',
+                        color: '#000',
+                        fontFamily: 'Inter',
+                        fontSize: '12px',
+                        fontWeight: 400,
+                        lineHeight: '16px'
+                      }}
+                    >
+                      {msg.text}
                     </div>
-                  ) : msg.text}
-                </div>
+
+                    {/* Footnote details button */}
+                    {msg.footnotes && msg.footnotes.length > 0 && (
+                      <div>
+                        <button
+                          onClick={() => toggleFootnotes(i)}
+                          className="flex items-center gap-2"
+                          style={{
+                            width: '142px',
+                            height: '26px',
+                            borderRadius: '8px',
+                            border: '1px solid #A0A0A0',
+                            padding: '0 12px',
+                            background: 'white'
+                          }}
+                        >
+                          <span
+                            style={{
+                              color: '#000',
+                              fontFamily: 'Inter',
+                              fontSize: '12px',
+                              fontWeight: 500,
+                              lineHeight: 'normal'
+                            }}
+                          >
+                            footnote details
+                          </span>
+                          <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            width="13" 
+                            height="8" 
+                            viewBox="0 0 13 8" 
+                            fill="none"
+                            style={{
+                              transform: expandedFootnotes[i] ? 'rotate(180deg)' : 'rotate(0deg)',
+                              transition: 'transform 0.2s'
+                            }}
+                          >
+                            <path d="M11.91 2.19345e-05L12.97 1.06102L7.193 6.84002C7.10043 6.93318 6.99036 7.0071 6.86911 7.05755C6.74786 7.108 6.61783 7.13397 6.4865 7.13397C6.35517 7.13397 6.22514 7.108 6.10389 7.05755C5.98264 7.0071 5.87257 6.93318 5.78 6.84002L0 1.06102L1.06 0.00102186L6.485 5.42502L11.91 2.19345e-05Z" fill="#A0A0A0"/>
+                          </svg>
+                        </button>
+
+                        {/* Expanded footnotes */}
+                        {expandedFootnotes[i] && (
+                          <div 
+                            className="mt-2 px-4 py-3"
+                            style={{
+                              borderRadius: '8px',
+                              background: '#F9F9F9',
+                              border: '1px solid #E0E0E0'
+                            }}
+                          >
+                            <p 
+                              className="mb-2"
+                              style={{
+                                color: '#000',
+                                fontFamily: 'Inter',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase'
+                              }}
+                            >
+                              Footnotes
+                            </p>
+                            {msg.footnotes.map(fn => (
+                              <p 
+                                key={fn.id} 
+                                className="mb-2"
+                                style={{
+                                  color: '#000',
+                                  fontFamily: 'Inter',
+                                  fontSize: '10px',
+                                  fontWeight: 400,
+                                  lineHeight: '14px'
+                                }}
+                              >
+                                <span style={{ fontWeight: 600 }}>({fn.id})</span> {fn.explanation}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
-            {isTyping && <div className="text-xs text-purple-400 animate-pulse">Analyzing certainty...</div>}
+
+            {isTyping && (
+              <div 
+                className="text-left"
+                style={{
+                  color: '#A0A0A0',
+                  fontFamily: 'Inter',
+                  fontSize: '10px',
+                  fontStyle: 'italic'
+                }}
+              >
+                Analyzing certainty...
+              </div>
+            )}
+
+            {/* Limit reached message */}
+            {questionCount >= QUESTION_LIMIT && (
+              <div
+                className="p-4"
+                style={{
+                  width: '339px',
+                  borderRadius: '8px',
+                  background: '#CEEEE4'
+                }}
+              >
+                <p
+                  className="mb-2"
+                  style={{
+                    color: '#000',
+                    fontFamily: 'Inter',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    lineHeight: 'normal'
+                  }}
+                >
+                  You have reached your limit (5 questions), let's give the feedback to us!
+                </p>
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleFeedback}
+                    style={{
+                      width: '87px',
+                      height: '20px',
+                      borderRadius: '8px',
+                      background: '#43A047',
+                      color: '#FFF',
+                      fontFamily: 'Inter',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      lineHeight: 'normal',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    give feedback
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div ref={scrollRef} />
           </div>
         )}
       </main>
 
       {/* Input area - fixed at bottom */}
-      <div className="px-6 pb-6">
+      <div className="px-6 pb-6 fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white">
         <div
           className="relative flex items-center"
           style={{
@@ -192,14 +373,7 @@ const MainHome = () => {
             padding: '0 12px'
           }}
         >
-          {/* Logo small */}
-          <img 
-            src={logoSmall} 
-            alt="h4h" 
-            className="w-6 h-6 mr-2"
-          />
-
-          {/* Input */}
+          <img src={logoSmall} alt="h4h" className="w-6 h-6 mr-2" />
           <input
             type="text"
             className="flex-1 bg-transparent border-none outline-none"
@@ -207,6 +381,7 @@ const MainHome = () => {
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            disabled={questionCount >= QUESTION_LIMIT}
             style={{
               color: 'rgba(0, 0, 0, 0.41)',
               fontFamily: 'Inter',
@@ -215,10 +390,9 @@ const MainHome = () => {
               lineHeight: 'normal'
             }}
           />
-
-          {/* Send button */}
           <button 
             onClick={handleSend}
+            disabled={questionCount >= QUESTION_LIMIT}
             className="flex-shrink-0 relative"
             style={{
               width: '25px',
@@ -226,7 +400,7 @@ const MainHome = () => {
             }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 25 25" fill="none">
-              <circle cx="12.5" cy="12.5" r="12.5" fill="#DFDFDF"/>
+              <circle cx="12.5" cy="12.5" r="12.5" fill={question.trim() && questionCount < QUESTION_LIMIT ? "#000" : "#DFDFDF"} />
             </svg>
             <svg 
               xmlns="http://www.w3.org/2000/svg" 
