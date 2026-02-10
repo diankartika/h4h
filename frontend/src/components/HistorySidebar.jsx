@@ -1,13 +1,13 @@
 // components/HistorySidebar.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { auth, db } from '../services/firebase';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { auth } from '../services/firebase';
+import { getUserQuestions } from '../services/firebase';
 import logoSmall from '../assets/logo-small.png';
 
 const FEEDBACK_FORM_URL = "https://forms.google.com/your-form-url"; // Replace with your actual form URL
 
-export const HistorySidebar = ({ isOpen, onClose }) => {
+export const HistorySidebar = ({ isOpen, onClose, onSelectConversation }) => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,16 +20,7 @@ export const HistorySidebar = ({ isOpen, onClose }) => {
   const fetchConversations = async () => {
     setLoading(true);
     try {
-      const q = query(
-        collection(db, 'questions'),
-        where('userId', '==', auth.currentUser.uid),
-        orderBy('timestamp', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
-      const convs = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const convs = await getUserQuestions(auth.currentUser.uid);
       setConversations(convs);
     } catch (error) {
       console.error("Error fetching conversations:", error);
@@ -38,13 +29,24 @@ export const HistorySidebar = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleConversationClick = (conv) => {
+    if (onSelectConversation) {
+      onSelectConversation(conv);
+    }
+    onClose();
+  };
+
   const handleFeedback = () => {
     window.open(FEEDBACK_FORM_URL, '_blank');
   };
 
   const handleLogout = async () => {
-    await auth.signOut();
-    onClose();
+    try {
+      await auth.signOut();
+      onClose();
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
   };
 
   if (!isOpen) return null;
@@ -103,6 +105,7 @@ export const HistorySidebar = ({ isOpen, onClose }) => {
               {conversations.map((conv) => (
                 <button
                   key={conv.id}
+                  onClick={() => handleConversationClick(conv)}
                   className="w-full text-left p-2 rounded hover:bg-gray-50 transition-colors"
                   style={{
                     border: '1px solid #E0E0E0'
@@ -130,7 +133,7 @@ export const HistorySidebar = ({ isOpen, onClose }) => {
                       marginTop: '4px'
                     }}
                   >
-                    {conv.timestamp?.toDate().toLocaleDateString()}
+                    {conv.timestamp?.toDate ? conv.timestamp.toDate().toLocaleDateString() : 'Recently'}
                   </p>
                 </button>
               ))}
@@ -184,38 +187,37 @@ export const HistorySidebar = ({ isOpen, onClose }) => {
             </div>
           </button>
 
-            {/* Logout button */}
-            <button
+          {/* Logout button */}
+          <button
             onClick={handleLogout}
             className="w-full flex items-center justify-between px-3"
             style={{
-                height: '57px',
-                border: '1px solid #B8B8B8',
-                background: '#FFF'
+              height: '57px',
+              border: '1px solid #B8B8B8',
+              background: '#FFF'
             }}
-            >
+          >
             <span
-                style={{
+              style={{
                 color: '#000',
                 fontFamily: 'Inter',
                 fontSize: '12px',
                 fontWeight: 500,
                 lineHeight: 'normal'
-                }}
+              }}
             >
-                Logout
+              Logout
             </span>
             <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="15" 
-                height="10" 
-                viewBox="0 0 15 10" 
-                fill="none"
-                // Remove rotation - arrow already points right
+              xmlns="http://www.w3.org/2000/svg" 
+              width="15" 
+              height="10" 
+              viewBox="0 0 15 10" 
+              fill="none"
             >
-                <path d="M14 5H1M14 5L10 9M14 5L10 1" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M14 5H1M14 5L10 9M14 5L10 1" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            </button>
+          </button>
         </div>
       </motion.div>
 

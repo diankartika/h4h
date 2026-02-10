@@ -1,11 +1,22 @@
 // src/services/firebase.js
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  orderBy, 
+  serverTimestamp 
+} from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
 
 // Your web app's Firebase configuration
-// TODO: Replace with your actual Firebase config from Firebase Console
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -73,32 +84,24 @@ export const getUserData = async (userId) => {
   return userDoc.exists() ? userDoc.data() : null;
 };
 
-// Check if user can ask more questions (5 per 24h)
+// Check if user can ask more questions (5 total, not per 24h)
 export const canAskQuestion = async (userId) => {
-  const now = new Date();
-  const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  
   const questionsRef = collection(db, 'questions');
   const q = query(
     questionsRef,
-    where('userId', '==', userId),
-    where('timestamp', '>', last24h)
+    where('userId', '==', userId)
   );
   
   const snapshot = await getDocs(q);
-  return snapshot.size < 5;
+  return snapshot.size < 5; // Total limit of 5 questions
 };
 
-// Get questions asked count in last 24h
+// Get total questions asked count
 export const getQuestionsCount = async (userId) => {
-  const now = new Date();
-  const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  
   const questionsRef = collection(db, 'questions');
   const q = query(
     questionsRef,
-    where('userId', '==', userId),
-    where('timestamp', '>', last24h)
+    where('userId', '==', userId)
   );
   
   const snapshot = await getDocs(q);

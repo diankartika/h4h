@@ -4,6 +4,8 @@ import { auth, db } from '../services/firebase';
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { generateAnswer } from '../services/gemini';
 import { annotateText } from '../services/annotation';
+import { askH4H } from '../controllers/QuestionController';
+import { getQuestionsCount } from '../services/firebase';
 import GuideModal from '../components/GuideModal';
 import FootnoteModal from '../components/FootnoteModal';
 import HistorySidebar from '../components/HistorySidebar';
@@ -72,28 +74,30 @@ const MainHome = () => {
     setIsTyping(true);
 
     try {
-      const raw = await generateAnswer(userQuery);
-      const annotatedData = await annotateText(raw);
+      // Use the QuestionController
+      const result = await askH4H(userQuery);
 
       const newResponse = {
         role: 'assistant',
-        text: annotatedData.annotated_text,
-        footnotes: annotatedData.footnotes,
-        task: annotatedData.task_detected
+        text: result.annotatedText,
+        footnotes: result.footnotes,
+        task: result.taskDetected
       };
 
       setChat(prev => [...prev, newResponse]);
-
-      await addDoc(collection(db, 'questions'), {
-        userId: auth.currentUser.uid,
-        questionText: userQuery,
-        annotatedAnswer: annotatedData.annotated_text,
-        footnotes: annotatedData.footnotes,
-        timestamp: serverTimestamp()
-      });
+      
+      // Update question count
+      const newCount = await getQuestionsCount(auth.currentUser.uid);
+      setQuestionCount(newCount);
 
     } catch (error) {
       console.error("Error in chat flow:", error);
+      // Show error message to user
+      setChat(prev => [...prev, { 
+        role: 'assistant', 
+        text: 'Sorry, there was an error processing your question. Please try again.',
+        footnotes: []
+      }]);
     } finally {
       setIsTyping(false);
     }
@@ -102,6 +106,18 @@ const MainHome = () => {
   const handleFeedback = () => {
     window.open(FEEDBACK_FORM_URL, '_blank');
   };
+
+  const handleSelectConversation = (conv) => {
+  setChat([
+    { role: 'user', text: conv.questionText },
+    { 
+      role: 'assistant', 
+      text: conv.annotatedText,
+      footnotes: conv.footnotes,
+      task: conv.taskDetected
+    }
+  ]);
+};
 
   // pages/MainHome.jsx - Make fully responsive
   return (
@@ -388,6 +404,12 @@ const MainHome = () => {
         isOpen={showFootnoteModal}
         onClose={() => setShowFootnoteModal(false)}
         footnotes={selectedFootnotes}
+      />
+
+      <HistorySidebar 
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        onSelectConversation={handleSelectConversation}
       />
     </div>
   );
