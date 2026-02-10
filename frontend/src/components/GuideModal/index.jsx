@@ -97,41 +97,45 @@ export const GuideModal = ({ isOpen, onClose, startPage = 0 }) => {
             <div className="overflow-y-auto h-full px-6 pt-12 pb-16" style={{ maxHeight: '400px' }}>
             {renderPage()}
             </div>
+            {/* Fixed Bottom Navigation */}
+            <div className="absolute left-0 right-0 px-6" style={{ bottom: '24px' }}>
+              <div className="flex justify-between items-center">
+                <button
+                  onClick={prevPage}
+                  disabled={currentPage === 0}
+                  className="disabled:opacity-0"
+                  style={{ visibility: currentPage === 0 ? 'hidden' : 'visible' }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="8" height="13" viewBox="0 0 8 13" fill="none" className="rotate-180">
+                    <path d="M-0.000161171 1.05997L1.06084 -2.86102e-05L6.83984 5.77697C6.93299 5.86954 7.00692 5.97961 7.05737 6.10086C7.10782 6.22212 7.13379 6.35214 7.13379 6.48347C7.13379 6.6148 7.10782 6.74483 7.05737 6.86608C7.00692 6.98733 6.93299 7.0974 6.83984 7.18997L1.06084 12.97L0.000838757 11.91L5.42484 6.48497L-0.000161171 1.05997Z" fill="black"/>
+                  </svg>
+                </button>
 
-        {/* Fixed Bottom Navigation */}
-        <div className="absolute bottom-6 left-0 right-0 px-6">  {/* Changed from bottom-3 to bottom-6 */}
-        <div className="flex justify-between items-center">
-            <button
-            onClick={prevPage}
-            disabled={currentPage === 0}
-            className="disabled:opacity-0"
-            style={{ visibility: currentPage === 0 ? 'hidden' : 'visible' }}
-            >
-            <svg xmlns="http://www.w3.org/2000/svg" width="8" height="13" viewBox="0 0 8 13" fill="none" className="rotate-180">
-                <path d="M-0.000161171 1.05997L1.06084 -2.86102e-05L6.83984 5.77697C6.93299 5.86954 7.00692 5.97961 7.05737 6.10086C7.10782 6.22212 7.13379 6.35214 7.13379 6.48347C7.13379 6.6148 7.10782 6.74483 7.05737 6.86608C7.00692 6.98733 6.93299 7.0974 6.83984 7.18997L1.06084 12.97L0.000838757 11.91L5.42484 6.48497L-0.000161171 1.05997Z" fill="black"/>
-            </svg>
-            </button>
+                <span
+                  style={{
+                    color: '#878787',
+                    textAlign: 'center',
+                    fontFamily: 'Inter',
+                    fontSize: '6px',
+                    fontWeight: 400,
+                    lineHeight: 'normal'
+                  }}
+                >
+                  page {currentPage + 1} out of {TOTAL_PAGES}
+                </span>
 
-            <span
-            style={{
-                color: '#878787',
-                textAlign: 'center',
-                fontFamily: 'Inter',
-                fontSize: '6px',
-                fontWeight: 400,
-                lineHeight: 'normal'
-            }}
-            >
-            page {currentPage + 1} out of {TOTAL_PAGES}
-            </span>
-
-            <button onClick={nextPage}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="8" height="13" viewBox="0 0 8 13" fill="none">
-                <path d="M-0.000161171 1.05997L1.06084 -2.86102e-05L6.83984 5.77697C6.93299 5.86954 7.00692 5.97961 7.05737 6.10086C7.10782 6.22212 7.13379 6.35214 7.13379 6.48347C7.13379 6.6148 7.10782 6.74483 7.05737 6.86608C7.00692 6.98733 6.93299 7.0974 6.83984 7.18997L1.06084 12.97L0.000838757 11.91L5.42484 6.48497L-0.000161171 1.05997Z" fill="black"/>
-            </svg>
-            </button>
-         </div>
-        </div>
+                {/* Only show Next button if not on last page */}
+                {currentPage < TOTAL_PAGES - 1 ? (
+                  <button onClick={nextPage}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="8" height="13" viewBox="0 0 8 13" fill="none">
+                      <path d="M-0.000161171 1.05997L1.06084 -2.86102e-05L6.83984 5.77697C6.93299 5.86954 7.00692 5.97961 7.05737 6.10086C7.10782 6.22212 7.13379 6.35214 7.13379 6.48347C7.13379 6.6148 7.10782 6.74483 7.05737 6.86608C7.00692 6.98733 6.93299 7.0974 6.83984 7.18997L1.06084 12.97L0.000838757 11.91L5.42484 6.48497L-0.000161171 1.05997Z" fill="black"/>
+                    </svg>
+                  </button>
+                ) : (
+                  <div style={{ width: '8px' }}></div> // Empty space to maintain layout
+                )}
+              </div>
+            </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>
