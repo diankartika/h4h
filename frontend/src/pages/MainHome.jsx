@@ -6,6 +6,7 @@ import { generateAnswer } from '../services/gemini';
 import { annotateText } from '../services/annotation';
 import { askH4H } from '../controllers/QuestionController';
 import { getQuestionsCount } from '../services/firebase';
+import { AnnotatedText } from '../components/AnnotatedText';
 import GuideModal from '../components/GuideModal';
 import FootnoteModal from '../components/FootnoteModal';
 import HistorySidebar from '../components/HistorySidebar';
@@ -198,8 +199,9 @@ const MainHome = () => {
             {chat.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'user' ? (
+                  /* User message bubble */
                   <div
-                    className="max-w-[85%] px-3 py-2 sm:px-4 sm:py-3"
+                    className="max-w-[80%] px-4 py-3"
                     style={{
                       borderRadius: '8px',
                       background: 'rgba(243, 198, 255, 0.45)',
@@ -213,22 +215,22 @@ const MainHome = () => {
                     {msg.text}
                   </div>
                 ) : (
-                  <div className="max-w-[90%] space-y-2">
+                  /* AI response - NO BUBBLE, just text with colored markers */
+                  <div className="max-w-[85%] space-y-2">
                     <div
-                      className="px-3 py-2 sm:px-4 sm:py-3"
+                      className="py-2"
                       style={{
-                        borderRadius: '8px',
-                        background: '#F5F5F5',
                         color: '#000',
                         fontFamily: 'Inter',
                         fontSize: '12px',
                         fontWeight: 400,
-                        lineHeight: '16px'
+                        lineHeight: '18px'
                       }}
                     >
-                      {msg.text}
+                      <AnnotatedText text={msg.text} />
                     </div>
 
+                    {/* Footnote details button */}
                     {msg.footnotes && msg.footnotes.length > 0 && (
                       <button
                         onClick={() => handleFootnoteClick(msg.footnotes)}
