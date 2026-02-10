@@ -184,38 +184,38 @@ export const HistorySidebar = ({ isOpen, onClose }) => {
             </div>
           </button>
 
-          {/* Logout button */}
-          <button
+            {/* Logout button */}
+            <button
             onClick={handleLogout}
             className="w-full flex items-center justify-between px-3"
             style={{
-              height: '57px',
-              border: '1px solid #B8B8B8',
-              background: '#FFF'
+                height: '57px',
+                border: '1px solid #B8B8B8',
+                background: '#FFF'
             }}
-          >
+            >
             <span
-              style={{
+                style={{
                 color: '#000',
                 fontFamily: 'Inter',
                 fontSize: '12px',
                 fontWeight: 500,
                 lineHeight: 'normal'
-              }}
+                }}
             >
-              Logout
+                Logout
             </span>
             <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="15" 
-              height="10" 
-              viewBox="0 0 15 10" 
-              fill="none"
-              style={{ transform: 'rotate(90deg)' }}
+                xmlns="http://www.w3.org/2000/svg" 
+                width="15" 
+                height="10" 
+                viewBox="0 0 15 10" 
+                fill="none"
+                // Remove rotation - arrow already points right
             >
-              <path d="M14 5H1M14 5L10 9M14 5L10 1" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M14 5H1M14 5L10 9M14 5L10 1" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-          </button>
+            </button>
         </div>
       </motion.div>
 
