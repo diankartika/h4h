@@ -65,44 +65,74 @@ const MainHome = () => {
 
   const [showHistory, setShowHistory] = useState(false);
 
-  const handleSend = async () => {
-    if (!question.trim()) return;
-    if (questionCount >= QUESTION_LIMIT) return;
+ const handleSend = async () => {
+  if (!question.trim()) return;
+  if (questionCount >= QUESTION_LIMIT) return;
 
-    const userQuery = question;
-    setQuestion('');
-    setChat(prev => [...prev, { role: 'user', text: userQuery }]);
-    setIsTyping(true);
+  const userQuery = question;
+  setQuestion('');
+  setChat(prev => [...prev, { role: 'user', text: userQuery }]);
+  setIsTyping(true);
 
-    try {
-      // Use the QuestionController
-      const result = await askH4H(userQuery);
-
-      const newResponse = {
-        role: 'assistant',
-        text: result.annotatedText,
-        footnotes: result.footnotes,
-        task: result.taskDetected
-      };
-
-      setChat(prev => [...prev, newResponse]);
-      
-      // Update question count
+  try {
+    console.log('=== DEBUG START ===');
+    console.log('1. Question:', userQuery);
+    console.log('2. Auth state:', auth.currentUser ? 'Logged in' : 'Test mode');
+    
+    let result;
+    
+    // If user is logged in, use full flow with Firestore
+    if (auth.currentUser) {
+      result = await askH4H(userQuery);
       const newCount = await getQuestionsCount(auth.currentUser.uid);
       setQuestionCount(newCount);
-
-    } catch (error) {
-      console.error("Error in chat flow:", error);
-      // Show error message to user
-      setChat(prev => [...prev, { 
-        role: 'assistant', 
-        text: 'Sorry, there was an error processing your question. Please try again.',
-        footnotes: []
-      }]);
-    } finally {
-      setIsTyping(false);
+    } 
+    // Test mode: skip Firestore, just call APIs directly
+    else {
+      console.log('3. TEST MODE: Calling Gemini...');
+      const rawAnswer = await generateAnswer(userQuery);
+      console.log('4. Gemini response:', rawAnswer.substring(0, 100) + '...');
+      
+      console.log('5. Calling annotation API...');
+      const annotationResult = await annotateText(rawAnswer);
+      console.log('6. Annotation result:', annotationResult);
+      
+      result = {
+        annotatedText: annotationResult.annotated_text,
+        footnotes: annotationResult.footnotes,
+        taskDetected: annotationResult.task_detected
+      };
+      
+      // Increment count locally in test mode
+      setQuestionCount(prev => prev + 1);
     }
-  };
+
+    const newResponse = {
+      role: 'assistant',
+      text: result.annotatedText,
+      footnotes: result.footnotes,
+      task: result.taskDetected
+    };
+
+    console.log('7. Final response:', newResponse);
+    console.log('=== DEBUG END ===');
+    
+    setChat(prev => [...prev, newResponse]);
+
+  } catch (error) {
+    console.error("❌ Error in chat flow:", error);
+    console.error("Error details:", error.message);
+    console.error("Stack:", error.stack);
+    
+    setChat(prev => [...prev, { 
+      role: 'assistant', 
+      text: `Sorry, there was an error: ${error.message}`,
+      footnotes: []
+    }]);
+  } finally {
+    setIsTyping(false);
+  }
+};
 
   const handleFeedback = () => {
     window.open(FEEDBACK_FORM_URL, '_blank');
@@ -196,81 +226,77 @@ const MainHome = () => {
           </div>
         ) : (
           <div className="w-full space-y-3 sm:space-y-4">
-            {chat.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.role === 'user' ? (
-                  /* User message bubble */
-                  <div
-                    className="max-w-[80%] px-4 py-3"
+            {msg.role === 'user' ? (
+              /* User message bubble */
+              <div
+                className="max-w-[80%] px-4 py-3"
+                style={{
+                  borderRadius: '8px',
+                  background: 'rgba(243, 198, 255, 0.45)',
+                  color: '#000',
+                  fontFamily: 'Inter',
+                  fontSize: '12px',
+                  fontWeight: 400,
+                  lineHeight: '16px'
+                }}
+              >
+                {msg.text}
+              </div>
+            ) : (
+              /* AI response - NO BUBBLE, just text with colored markers */
+              <div className="max-w-[85%] space-y-2">
+                <div
+                  className="py-2"
+                  style={{
+                    color: '#000',
+                    fontFamily: 'Inter',
+                    fontSize: '12px',
+                    fontWeight: 400,
+                    lineHeight: '18px',
+                    textAlign: 'justify' // ← ADD THIS!
+                  }}
+                >
+                  <AnnotatedText text={msg.text} />
+                </div>
+
+                {/* Footnote details button */}
+                {msg.footnotes && msg.footnotes.length > 0 && (
+                  <button
+                    onClick={() => handleFootnoteClick(msg.footnotes)}
+                    className="flex items-center gap-2"
                     style={{
+                      width: '142px',
+                      height: '26px',
                       borderRadius: '8px',
-                      background: 'rgba(243, 198, 255, 0.45)',
-                      color: '#000',
-                      fontFamily: 'Inter',
-                      fontSize: '12px',
-                      fontWeight: 400,
-                      lineHeight: '16px'
+                      border: '1px solid #A0A0A0',
+                      padding: '0 12px',
+                      background: 'white'
                     }}
                   >
-                    {msg.text}
-                  </div>
-                ) : (
-                  /* AI response - NO BUBBLE, just text with colored markers */
-                  <div className="max-w-[85%] space-y-2">
-                    <div
-                      className="py-2"
+                    <span
                       style={{
                         color: '#000',
                         fontFamily: 'Inter',
                         fontSize: '12px',
-                        fontWeight: 400,
-                        lineHeight: '18px'
+                        fontWeight: 500,
+                        lineHeight: 'normal'
                       }}
                     >
-                      <AnnotatedText text={msg.text} />
-                    </div>
-
-                    {/* Footnote details button */}
-                    {msg.footnotes && msg.footnotes.length > 0 && (
-                      <button
-                        onClick={() => handleFootnoteClick(msg.footnotes)}
-                        className="flex items-center gap-2"
-                        style={{
-                          width: '142px',
-                          height: '26px',
-                          borderRadius: '8px',
-                          border: '1px solid #A0A0A0',
-                          padding: '0 12px',
-                          background: 'white'
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: '#000',
-                            fontFamily: 'Inter',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            lineHeight: 'normal'
-                          }}
-                        >
-                          footnote details
-                        </span>
-                        <svg 
-                          xmlns="http://www.w3.org/2000/svg" 
-                          width="13" 
-                          height="8" 
-                          viewBox="0 0 13 8" 
-                          fill="none"
-                        >
-                          <path d="M11.91 2.19345e-05L12.97 1.06102L7.193 6.84002C7.10043 6.93318 6.99036 7.0071 6.86911 7.05755C6.74786 7.108 6.61783 7.13397 6.4865 7.13397C6.35517 7.13397 6.22514 7.108 6.10389 7.05755C5.98264 7.0071 5.87257 6.93318 5.78 6.84002L0 1.06102L1.06 0.00102186L6.485 5.42502L11.91 2.19345e-05Z" fill="#A0A0A0"/>
-                        </svg>
-                      </button>
-                    )}
-                  </div>
+                      footnote details
+                    </span>
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      width="13" 
+                      height="8" 
+                      viewBox="0 0 13 8" 
+                      fill="none"
+                    >
+                      <path d="M11.91 2.19345e-05L12.97 1.06102L7.193 6.84002C7.10043 6.93318 6.99036 7.0071 6.86911 7.05755C6.74786 7.108 6.61783 7.13397 6.4865 7.13397C6.35517 7.13397 6.22514 7.108 6.10389 7.05755C5.98264 7.0071 5.87257 6.93318 5.78 6.84002L0 1.06102L1.06 0.00102186L6.485 5.42502L11.91 2.19345e-05Z" fill="#A0A0A0"/>
+                    </svg>
+                  </button>
                 )}
               </div>
-            ))}
-
+            )}
             {isTyping && (
               <div 
                 className="text-left"
@@ -281,7 +307,7 @@ const MainHome = () => {
                   fontStyle: 'italic'
                 }}
               >
-                Analyzing certainty...
+                Annotating response...
               </div>
             )}
 
@@ -349,14 +375,18 @@ const MainHome = () => {
           <img src={logoSmall} alt="h4h" className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
           <input
             type="text"
-            className="flex-1 bg-transparent border-none outline-none"
+            className="flex-1 bg-transparent border-none outline-none text-black placeholder-gray-400"
             placeholder="try to ask me anything!"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); 
+                handleSend();
+              }
+            }}
             disabled={questionCount >= QUESTION_LIMIT}
             style={{
-              color: 'rgba(0, 0, 0, 0.41)',
               fontFamily: 'Inter',
               fontSize: '11px',
               fontWeight: 400,
