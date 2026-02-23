@@ -5,20 +5,20 @@ const getMarkerColor = (marker) => {
   const markerLower = marker.toLowerCase();
   
   if (markerLower.includes('verified') || markerLower.includes('factual') || markerLower.includes('likely')) {
-    return '#43A047'; // Green
+    return '#43A047';
   }
   
   if (markerLower.includes('plausible') || markerLower.includes('uncertain') || markerLower.includes('questionable')) {
-    return '#FFA726'; // Orange/Amber
+    return '#FFA726';
   }
   
   if (markerLower.includes('speculative') || markerLower.includes('unsupported') || 
       markerLower.includes('contradicted') || markerLower.includes('insufficient')) {
-    return '#F44336'; // Red
+    return '#F44336';
   }
   
   if (markerLower.includes('insufficient-info')) {
-    return '#9E9E9E'; // Gray
+    return '#9E9E9E';
   }
   
   return '#757575';
@@ -28,7 +28,7 @@ const parseMarkdown = (text) => {
   // Bold: **text**
   text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   
-  // Italic: *text* (but not **, and not inside words)
+  // Italic: *text*
   text = text.replace(/(?<!\*)\*(?!\*)([^\*]+)\*(?!\*)/g, '<em>$1</em>');
   
   // Code: `text`
@@ -37,12 +37,28 @@ const parseMarkdown = (text) => {
   return text;
 };
 
+const olStyle = {
+  paddingLeft: '20px',
+  marginBottom: '16px'
+};
+
+const ulStyle = {
+  paddingLeft: '20px',
+  marginBottom: '16px'
+};
+
+const liStyle = {
+  marginBottom: '8px',
+  lineHeight: '1.7'
+};
+
 export const AnnotatedText = ({ text }) => {
   const processText = () => {
     const lines = text.split('\n');
     const elements = [];
     let currentList = null;
     let currentListType = null;
+    let listItems = [];
     
     lines.forEach((line, lineIndex) => {
       const trimmedLine = line.trim();
@@ -50,46 +66,62 @@ export const AnnotatedText = ({ text }) => {
       // Skip empty lines
       if (!trimmedLine) {
         if (currentList) {
-          elements.push(currentList);
+          elements.push(
+            <ol key="final-list" className="list-decimal pl-8 mb-3 space-y-2">
+              {listItems}
+            </ol>
+          );
           currentList = null;
           currentListType = null;
+          listItems = [];
         }
-        elements.push(<br key={`br-${lineIndex}`} />);
         return;
       }
       
       // Headers
       if (trimmedLine.startsWith('### ')) {
         if (currentList) {
-          elements.push(currentList);
+          elements.push(
+            <ol key="final-list" className="list-decimal pl-8 mb-3 space-y-2">
+              {listItems}
+            </ol>
+          );
           currentList = null;
-          currentListType = null;
+          listItems = [];
         }
         elements.push(
-          <h3 key={lineIndex} className="font-bold text-sm mt-3 mb-2">
+          <h3 key={lineIndex} className="font-bold text-sm mt-4 mb-2">
             {renderLineWithMarkers(trimmedLine.replace('### ', ''))}
           </h3>
         );
         return;
       }
+
       if (trimmedLine.startsWith('## ')) {
-        if (currentList) {
-          elements.push(currentList);
-          currentList = null;
-          currentListType = null;
-        }
         elements.push(
-          <h2 key={lineIndex} className="font-bold text-base mt-4 mb-2">
+          <h2
+            key={lineIndex}
+            style={{
+              fontWeight: 600,
+              fontSize: '18px',
+              marginBottom: '8px'
+            }}
+          >
             {renderLineWithMarkers(trimmedLine.replace('## ', ''))}
           </h2>
         );
         return;
       }
+
       if (trimmedLine.startsWith('# ')) {
         if (currentList) {
-          elements.push(currentList);
+          elements.push(
+            <ol key="final-list" className="list-decimal pl-8 mb-3 space-y-2">
+              {listItems}
+            </ol>
+          );
           currentList = null;
-          currentListType = null;
+          listItems = [];
         }
         elements.push(
           <h1 key={lineIndex} className="font-bold text-lg mt-4 mb-2">
@@ -102,106 +134,150 @@ export const AnnotatedText = ({ text }) => {
       // Bullet points
       if (trimmedLine.startsWith('* ') || trimmedLine.startsWith('- ')) {
         const content = trimmedLine.substring(2);
-        const listItem = (
-          <li key={lineIndex} className="ml-4 mb-1">
+
+        if (currentListType !== 'ul') {
+          if (currentList && listItems.length > 0) {
+            elements.push(
+              <ol key="final-list" className="list-decimal pl-6 mb-4 space-y-2">
+                {listItems}
+              </ol>
+            );
+          }
+
+          currentList = true;
+          currentListType = 'ul';
+          listItems = [];
+        }
+
+        listItems.push(
+          <li key={lineIndex} className="leading-relaxed">
             {renderLineWithMarkers(content)}
           </li>
         );
-        
-        if (currentListType === 'bullet') {
-          currentList.props.children.push(listItem);
-        } else {
-          if (currentList) elements.push(currentList);
-          currentList = <ul key={`ul-${lineIndex}`} className="list-disc pl-5 mb-2">{[listItem]}</ul>;
-          currentListType = 'bullet';
-        }
+
         return;
       }
       
-      // Numbered lists
+      // Numbered lists - REMOVE MARKERS FROM THE NUMBER ITSELF
       const numberedMatch = trimmedLine.match(/^(\d+)\.\s+(.+)/);
+
       if (numberedMatch) {
         const content = numberedMatch[2];
-        const listItem = (
-          <li key={lineIndex} className="ml-4 mb-1">
+
+        if (currentListType !== 'ol') {
+          if (currentList && listItems.length > 0) {
+            elements.push(
+              currentListType === 'ul' ? (
+                <ul key={`list-${lineIndex}`} style={ulStyle}>
+                  {listItems}
+                </ul>
+              ) : (
+                <ol key={`list-${lineIndex}`} style={olStyle}>
+                  {listItems}
+                </ol>
+              )
+            );
+          }
+
+          currentList = true;
+          currentListType = 'ol';
+          listItems = [];
+        }
+
+        listItems.push(
+          <li key={lineIndex} style={liStyle}>
             {renderLineWithMarkers(content)}
           </li>
         );
-        
-        if (currentListType === 'numbered') {
-          currentList.props.children.push(listItem);
-        } else {
-          if (currentList) elements.push(currentList);
-          currentList = <ol key={`ol-${lineIndex}`} className="list-decimal pl-5 mb-2">{[listItem]}</ol>;
-          currentListType = 'numbered';
-        }
+
         return;
+      }
+      
+      // End list if we hit regular text
+      if (currentList) {
+        elements.push(
+          <ol key="final-list" className="list-decimal pl-8 mb-3 space-y-2">
+            {listItems}
+          </ol>
+        );
+        currentList = null;
+        listItems = [];
       }
       
       // Regular paragraph
-      if (currentList) {
-        elements.push(currentList);
-        currentList = null;
-        currentListType = null;
-      }
       elements.push(
-        <p key={lineIndex} className="mb-2">
-          {renderLineWithMarkers(line)}
+        <p className="mb-4 leading-relaxed">
+            {renderLineWithMarkers(line)}
         </p>
       );
     });
     
     // Push any remaining list
-    if (currentList) {
-      elements.push(currentList);
+    if (currentList && listItems.length > 0) {
+      elements.push(
+        currentListType === 'ul' ? (
+          <ul key="final-list" className="list-disc pl-6 mb-4 space-y-2">
+            {listItems}
+          </ul>
+        ) : (
+          <ol key="final-list" className="list-decimal pl-6 mb-4 space-y-2">
+            {listItems}
+          </ol>
+        )
+      );
     }
     
     return elements;
   };
   
   const renderLineWithMarkers = (line) => {
-    // Split by marker pattern: [marker, p=0.XX]^(N) or [marker, p=0.XX](N)
-    const parts = line.split(/(\[.*?\]\^?\(?\d+\)?)/g);
-    
+
+    // Convert ^(3) → <sup>3</sup>
+    line = line.replace(/\^\((\d+)\)/g, '<sup>$1</sup>');
+
+    // Match marker format: [text, p=0.xx]
+    const parts = line.split(/(\[[^\]]+\])/g);
+
     return parts.map((part, index) => {
-      // Check if this is a marker
-      const markerMatch = part.match(/\[(.*?)\]\^?\((\d+)\)?/);
-      
+
+      const markerMatch = part.match(/\[([^\]]+)\]/);
+
       if (markerMatch) {
-        const [_, markerText, footnoteNum] = markerMatch;
+        const markerText = markerMatch[1];
         const color = getMarkerColor(markerText);
-        
+
         return (
           <span
             key={index}
             style={{
               color: color,
-              fontWeight: 600,
-              fontSize: '9px',
-              verticalAlign: 'super',
-              marginLeft: '2px',
-              whiteSpace: 'nowrap'
+              fontWeight: 500
             }}
           >
-            [{markerText}]<sup style={{ fontSize: '7px' }}>({footnoteNum})</sup>
+            [{markerText}]
           </span>
         );
       }
-      
-      // Regular text - apply markdown formatting
-      const formatted = parseMarkdown(part);
-      return <span key={index} dangerouslySetInnerHTML={{ __html: formatted }} />;
+
+      return (
+        <span
+          key={index}
+          dangerouslySetInnerHTML={{ __html: parseMarkdown(part) }}
+        />
+      );
     });
   };
 
   return (
-    <div 
+    <div
       style={{
-        fontFamily: 'Inter',
-        fontSize: '12px',
-        lineHeight: '1.7',
-        color: '#000',
-        textAlign: 'justify'
+        fontFamily: 'Inter, system-ui, -apple-system',
+        fontSize: '15px',
+        lineHeight: '1.75',
+        color: '#1a1a1a',
+        maxWidth: '640px',
+        margin: '0 auto',
+        padding: '0 20px'
       }}
     >
       {processText()}

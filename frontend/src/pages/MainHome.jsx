@@ -226,77 +226,79 @@ const MainHome = () => {
           </div>
         ) : (
           <div className="w-full space-y-3 sm:space-y-4">
-            {msg.role === 'user' ? (
-              /* User message bubble */
-              <div
-                className="max-w-[80%] px-4 py-3"
-                style={{
-                  borderRadius: '8px',
-                  background: 'rgba(243, 198, 255, 0.45)',
-                  color: '#000',
-                  fontFamily: 'Inter',
-                  fontSize: '12px',
-                  fontWeight: 400,
-                  lineHeight: '16px'
-                }}
-              >
-                {msg.text}
-              </div>
-            ) : (
-              /* AI response - NO BUBBLE, just text with colored markers */
-              <div className="max-w-[85%] space-y-2">
-                <div
-                  className="py-2"
-                  style={{
-                    color: '#000',
-                    fontFamily: 'Inter',
-                    fontSize: '12px',
-                    fontWeight: 400,
-                    lineHeight: '18px',
-                    textAlign: 'justify' // ← ADD THIS!
-                  }}
-                >
-                  <AnnotatedText text={msg.text} />
-                </div>
-
-                {/* Footnote details button */}
-                {msg.footnotes && msg.footnotes.length > 0 && (
-                  <button
-                    onClick={() => handleFootnoteClick(msg.footnotes)}
-                    className="flex items-center gap-2"
+            {chat.map((message, index) => (  // ← Changed 'msg' to 'message', 'i' to 'index'
+              <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {message.role === 'user' ? (
+                  <div
+                    className="max-w-[85%] px-3 py-2 sm:px-4 sm:py-3"
                     style={{
-                      width: '142px',
-                      height: '26px',
                       borderRadius: '8px',
-                      border: '1px solid #A0A0A0',
-                      padding: '0 12px',
-                      background: 'white'
+                      background: 'rgba(243, 198, 255, 0.45)',
+                      color: '#000',
+                      fontFamily: 'Inter',
+                      fontSize: '12px',
+                      fontWeight: 400,
+                      lineHeight: '16px'
                     }}
                   >
-                    <span
+                    {message.text}
+                  </div>
+                ) : (
+                  <div className="max-w-[90%] space-y-2">
+                    <div
+                      className="py-2"
                       style={{
                         color: '#000',
                         fontFamily: 'Inter',
                         fontSize: '12px',
-                        fontWeight: 500,
-                        lineHeight: 'normal'
+                        fontWeight: 400,
+                        lineHeight: '18px',
+                        textAlign: 'justify'
                       }}
                     >
-                      footnote details
-                    </span>
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      width="13" 
-                      height="8" 
-                      viewBox="0 0 13 8" 
-                      fill="none"
-                    >
-                      <path d="M11.91 2.19345e-05L12.97 1.06102L7.193 6.84002C7.10043 6.93318 6.99036 7.0071 6.86911 7.05755C6.74786 7.108 6.61783 7.13397 6.4865 7.13397C6.35517 7.13397 6.22514 7.108 6.10389 7.05755C5.98264 7.0071 5.87257 6.93318 5.78 6.84002L0 1.06102L1.06 0.00102186L6.485 5.42502L11.91 2.19345e-05Z" fill="#A0A0A0"/>
-                    </svg>
-                  </button>
+                      <AnnotatedText text={message.text} />
+                    </div>
+
+                    {message.footnotes && message.footnotes.length > 0 && (
+                      <button
+                        onClick={() => handleFootnoteClick(message.footnotes)}
+                        className="flex items-center gap-2"
+                        style={{
+                          width: '142px',
+                          height: '26px',
+                          borderRadius: '8px',
+                          border: '1px solid #A0A0A0',
+                          padding: '0 12px',
+                          background: 'white'
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: '#000',
+                            fontFamily: 'Inter',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            lineHeight: 'normal'
+                          }}
+                        >
+                          footnote details
+                        </span>
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          width="13" 
+                          height="8" 
+                          viewBox="0 0 13 8" 
+                          fill="none"
+                        >
+                          <path d="M11.91 2.19345e-05L12.97 1.06102L7.193 6.84002C7.10043 6.93318 6.99036 7.0071 6.86911 7.05755C6.74786 7.108 6.61783 7.13397 6.4865 7.13397C6.35517 7.13397 6.22514 7.108 6.10389 7.05755C5.98264 7.0071 5.87257 6.93318 5.78 6.84002L0 1.06102L1.06 0.00102186L6.485 5.42502L11.91 2.19345e-05Z" fill="#A0A0A0"/>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
+            ))}
+
             {isTyping && (
               <div 
                 className="text-left"
@@ -307,7 +309,7 @@ const MainHome = () => {
                   fontStyle: 'italic'
                 }}
               >
-                Annotating response...
+                Annotating response ...
               </div>
             )}
 
@@ -361,27 +363,26 @@ const MainHome = () => {
       {/* Input area - fixed at bottom */}
       <div className="px-4 sm:px-6 pb-4 sm:pb-6 fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto bg-white">
         <div
-          className="relative flex items-center w-full"
+          className="relative flex items-center mx-auto" // ← Added mx-auto, removed fixed width
           style={{
-            maxWidth: '344px',
+            maxWidth: '100%', // ← Changed from fixed 344px
             height: '44px',
             borderRadius: '22px',
             border: '1px solid #DFDFDF',
             background: '#FFF',
-            padding: '0 12px',
-            margin: '0 auto'
+            padding: '0 12px'
           }}
         >
           <img src={logoSmall} alt="h4h" className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
           <input
             type="text"
-            className="flex-1 bg-transparent border-none outline-none text-black placeholder-gray-400"
+            className="flex-1 bg-transparent border-none outline-none text-black"
             placeholder="try to ask me anything!"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault(); 
+              if (e.key === 'Enter') {
+                e.preventDefault();
                 handleSend();
               }
             }}
@@ -394,6 +395,7 @@ const MainHome = () => {
             }}
           />
           <button 
+            type="button"
             onClick={handleSend}
             disabled={questionCount >= QUESTION_LIMIT}
             className="flex-shrink-0 relative"
