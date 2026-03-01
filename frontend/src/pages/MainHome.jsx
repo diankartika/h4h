@@ -13,7 +13,7 @@ import HistorySidebar from '../components/HistorySidebar';
 import logoShort from '../assets/logo-short.png';
 import logoSmall from '../assets/logo-small.png';
 
-const QUESTION_LIMIT = 999;
+const QUESTION_LIMIT = 9999;
 const FEEDBACK_FORM_URL = "https://forms.google.com/your-form-url"; // Replace with your actual form URL
 
 const MainHome = () => {

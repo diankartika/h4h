@@ -15,73 +15,131 @@ const getMarkerStyle = (marker) => {
 // ─── Inline renderer ─────────────────────────────────────────────────────────
 const renderInline = (content) => {
   if (!content) return null;
-  const regex = /(\*\*[^*]+\*\*|\[[^\]]+\]\^?\(?\d+\)?)/g;
-  const parts = content.split(regex);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i} style={{ fontWeight: 700, color: "#1a1a1a" }}>{part.slice(2, -2)}</strong>;
+  // Split by markers first (they may appear inside bold spans after A0 transform)
+  // Then handle bold/italic in the remaining text segments
+  const MARKER_RE = /(\[[^\]]+\]\^?\(?\d*\)?)/g;
+  const tokens = [];
+  let last = 0, m;
+  MARKER_RE.lastIndex = 0;
+  while ((m = MARKER_RE.exec(content)) !== null) {
+    if (m.index > last) tokens.push({ k: "text", v: content.slice(last, m.index) });
+    tokens.push({ k: "marker", v: m[0] });
+    last = m.index + m[0].length;
+  }
+  if (last < content.length) tokens.push({ k: "text", v: content.slice(last) });
+
+  const result = [];
+  tokens.forEach((tok, ti) => {
+    if (tok.k === "marker") {
+      const markerMatch = tok.v.match(/^\[([^\]]+)\]\^?\(?(\d*)\)?$/);
+      if (markerMatch) {
+        const [, label, num] = markerMatch;
+        const s = getMarkerStyle(label);
+        result.push(
+          <span key={ti} style={{
+            display: "inline-flex", alignItems: "center", gap: "2px",
+            padding: "2px 8px", marginInline: "3px", borderRadius: "999px",
+            backgroundColor: s.bg, color: s.color, fontSize: "11.5px",
+            fontWeight: 600, verticalAlign: "middle", whiteSpace: "nowrap",
+            border: `1px solid ${s.border}`, lineHeight: 1.4,
+          }}>
+            {label}{num ? <sup style={{ fontSize: "9px", opacity: 0.7, marginLeft: "1px" }}>{num}</sup> : null}
+          </span>
+        );
+      }
+    } else {
+      const STYLE_RE = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+      const parts = tok.v.split(STYLE_RE);
+      parts.forEach((p, pi) => {
+        if (!p) return;
+        const key = ti * 1000 + pi;
+        if (p.startsWith("**") && p.endsWith("**")) {
+          result.push(<strong key={key} style={{ fontWeight: 700, color: "#1a1a1a" }}>{renderInline(p.slice(2, -2))}</strong>);
+        } else if (p.startsWith("*") && p.endsWith("*")) {
+          result.push(<em key={key} style={{ fontStyle: "italic" }}>{p.slice(1, -1)}</em>);
+        } else {
+          result.push(p);
+        }
+      });
     }
-    const markerMatch = part.match(/^\[([^\]]+)\]\^?\(?(\d+)\)?$/);
-    if (markerMatch) {
-      const [, label, num] = markerMatch;
-      const s = getMarkerStyle(label);
-      return (
-        <span key={i} style={{
-          display: "inline-flex", alignItems: "center", gap: "2px",
-          padding: "2px 8px", marginInline: "3px", borderRadius: "999px",
-          backgroundColor: s.bg, color: s.color, fontSize: "11.5px",
-          fontWeight: 600, verticalAlign: "middle", whiteSpace: "nowrap",
-          border: `1px solid ${s.border}`, lineHeight: 1.4,
-        }}>
-          {label}<sup style={{ fontSize: "9px", opacity: 0.7, marginLeft: "1px" }}>{num}</sup>
-        </span>
-      );
-    }
-    return part;
   });
+  return result;
 };
 
 // ─── PRE-PARSER ───────────────────────────────────────────────────────────────
-// Normalizes messy LLM output before line-by-line parsing.
 const preParse = (text) => {
-  // 1. Strip markdown heading hashes: "## Title" → keep as line, parser handles ##
-  // (we keep ## so the block parser can detect heading level)
+  const NL = "\n";
 
-  // 2. Fix "N [marker]. **Title:** body" → "N. **Title** [marker]:\nbody"
+  // P0. Strip ":Label:body" prefix — LLM sometimes emits ":Location:Yogyakarta"
+  // Just remove the label+colons, keep the body text
+  text = text.replace(/^:[^:\n]{1,40}:([ \t]*)/gm, function(_, space) {
+    return "";
+  });
+
+  // P1. Strip orphan leading colon left after splitting
+  text = text.replace(/^:\s+/gm, "");
+
+    // A1. Split inline bullets after sentence-ending punct before bold: ". * **" or "? * **"
+  text = text
+    .replace(/([.?!])\s*\*\s+(?=\*\*)/g, function(_, p) { return p + NL + "* "; })
+    .replace(/([.?!])\s*-\s+(?=\*\*)/g,  function(_, p) { return p + NL + "- "; });
+
+  // A2. Split inline headings: "[marker]. ### Step" or "[marker]. ## Title"
   text = text.replace(
-    /^(\d+)\s+(\[[^\]]+\]\^?\(?\d+\)?)\s*\.\s*(.*)/gm,
-    (_, num, marker, rest) => {
-      const boldTitle = rest.match(/^(\*\*[^*]+\*\*):?\s*(.*)/s);
-      if (boldTitle) {
-        const body = boldTitle[2].trim();
-        return `${num}. ${boldTitle[1]} ${marker}:${body ? '\n' + body : ''}`.trim();
+    /(\]\^?\(?\d*\)?)\s*[.?!]\s+(#{2,3}\s+)/g,
+    function(_, m, h) { return m + NL + h; }
+  );
+
+  // A3. Split horizontal rule: "[marker]. ---" or plain ". ---"
+  text = text.replace(
+    /(\]\^?\(?\d*\)?)\s*\.\s+---/g,
+    function(_, m) { return m + NL + "---"; }
+  );
+  text = text.replace(/\.\s+---(\s|$)/g, "." + NL + "---" + NL);
+
+  // B. Fix "N [m1]. [m2]?. **Title:** body" at LINE START
+  // -> "N. **Title** [m1] [m2]:\nbody"
+  text = text.replace(
+    /^(\d+)\s+(\[[^\]]+\]\^?\(?\d*\)?)((?:\s*\.\s*\[[^\]]+\]\^?\(?\d*\)?)*)\s*\.\s*(.*)/gm,
+    function(_, num, m1, extra, rest) {
+      var allM = m1;
+      if (extra) {
+        var ex = extra.match(/\[[^\]]+\]\^?\(?\d*\)?/g);
+        if (ex) allM += " " + ex.join(" ");
       }
-      return `${num}. ${rest} ${marker}`.trim();
+      var boldTitle = rest.match(/^(\*\*[^*]+\*\*):?\s*([\s\S]*)/);
+      if (boldTitle) {
+        var titleText = boldTitle[1];
+        var body = boldTitle[2].trim();
+        var inner = titleText.replace(/^\*\*|\*\*$/g, "");
+        var colon = inner.trim().endsWith(":") ? "" : ":";
+        return num + ". " + titleText + " " + allM.trim() + colon + (body ? NL + body : "");
+      }
+      return num + ". " + rest + " " + allM.trim();
     }
   );
 
-  // 3. Fix run-on "...text [marker]. 2 [marker]. **Title:**"
+  // C. Split mid-paragraph run-on: "body text. N [m1]. [m2]?. **Title:**"
   text = text.replace(
-    /(\]\^?\(?\d+\)?)\s*\.\s+(\d+)\s+(\[[^\]]+\]\^?\(?\d+\)?)\s*\.\s*(\*\*[^*]+\*\*):?\s*/g,
-    (_, prev, num, marker, bold) => `${prev}\n${num}. ${bold} ${marker}:\n`
-  );
-  text = text.replace(
-    /\.\s+(\d+)\s+(\[[^\]]+\]\^?\(?\d+\)?)\s*\.\s+(\*\*)/g,
-    ".\n$1. $3"
+    /\.\s+(\d+)\s+(\[[^\]]+\]\^?\(?\d*\)?)((?:\s*\.\s*\[[^\]]+\]\^?\(?\d*\)?)*)\s*\.\s*(\*\*[^*]+\*\*):?\s*/g,
+    function(_, num, m1, extra, bold) {
+      var allM = m1;
+      if (extra) { var ex = extra.match(/\[[^\]]+\]\^?\(?\d*\)?/g); if (ex) allM += " " + ex.join(" "); }
+      var inner = bold.replace(/^\*\*|\*\*$/g, "");
+      var colon = inner.trim().endsWith(":") ? "" : ":";
+      return NL + num + ". " + bold + " " + allM.trim() + colon + NL;
+    }
   );
 
-  // 4. Inline sub-bullet splitting: "[marker]. * **Next:**" → newline
+  // D. Inline sub-bullet after marker: "[marker]. * **text**" or "[marker]? - **text**"
   text = text
-    .replace(/(\]\^?\(?\d+\)?)\s*\.\s*\*\s+/g, "$1\n* ")
-    .replace(/(\]\^?\(?\d+\)?)\s*\.\s*-\s+/g,  "$1\n- ")
-    .replace(/\.\s+\*\s+(?=\*\*)/g, ".\n* ")
-    .replace(/\.\s+-\s+(?=\*\*)/g,  ".\n- ");
+    .replace(/(\]\^?\(?\d*\)?)\s*[.?!]\s*\*\s+/g,  function(_, m) { return m + NL + "* "; })
+    .replace(/(\]\^?\(?\d*\)?)\s*[.?!]\s*-\s+/g,   function(_, m) { return m + NL + "- "; });
 
-  // 5. Detach inline subheaders stuck to list items:
-  //    "[marker]. **Resources for Learning:**" → "[marker]\n**Resources for Learning:**"
+  // E. Detach standalone bold subheaders: "[marker]. **Category:**" -> "[marker]\n**Category:**"
   text = text.replace(
-    /(\]\^?\(?\d+\)?)\s*\.\s+(\*\*[^*]+:\*\*)/g,
-    "$1\n$2"
+    /(\]\^?\(?\d*\)?)\s*[.?!]?\s*(\*\*[^*]+:\*\*)/g,
+    function(_, m, h) { return m + NL + h; }
   );
 
   return text;
@@ -107,11 +165,11 @@ const parseBlocks = (text) => {
     if (h2) { blocks.push({ type: "h2", text: h2[1] }); return; }
 
     // Numbered list: "1. text"
-    const numMatch = t.match(/^(\d+)[.)]\s+(.*)/s);
+    const numMatch = t.match(/^(\d+)[.)]\s+([\s\S]*)/);
     if (numMatch) { blocks.push({ type: "numbered", num: parseInt(numMatch[1]), text: numMatch[2] }); return; }
 
     // Bullet list: "* text" / "- text" / "• text"
-    const bulletMatch = t.match(/^[-*•]\s+(.*)/s);
+    const bulletMatch = t.match(/^[-*•]\s+([\s\S]*)/);
     if (bulletMatch) {
       const bt = bulletMatch[1].trim();
       // Detect category-header bullet: **Bold:** (bold text ending with colon)
@@ -156,7 +214,7 @@ const BulletRow = ({ bullet, isNumber, indent, children }) => (
   <div style={{
     display: "flex",
     alignItems: "flex-start",
-    marginBottom: indent ? "5px" : "10px",
+    marginBottom: indent ? "6px" : "12px",
     marginLeft: indent ? "28px" : "0",   // ← indent child items under category
   }}>
     <span style={{
@@ -328,8 +386,8 @@ export const AnnotatedText = ({ text }) => {
       if (inNumberedItem && listKind === "ol") {
         listBuf.push(
           <div key={key} style={{
-            marginLeft: "36px", marginBottom: "8px",
-            fontSize: "15px", lineHeight: 1.75, color: "#5f6368",
+            marginLeft: "36px", marginBottom: "12px",
+            fontSize: "14.5px", lineHeight: 1.7, color: "#5f6368",
           }}>
             {renderInline(block.text)}
           </div>
@@ -357,133 +415,3 @@ export const AnnotatedText = ({ text }) => {
 
 // ─── List row component (kept for backward compat, now using BulletRow) ───────
 const ListRow = BulletRow;
-
-
-// ─── Demo Samples ─────────────────────────────────────────────────────────────
-const UIUX = `Becoming a UI/UX designer is an exciting and rewarding career path that blends creativity, problem-solving, and empathy [plausible, p=0.56]^(1). It's about designing experiences that are not only beautiful but also intuitive, useful, and enjoyable for users [likely, p=0.70]^(2). Here's a comprehensive guide on how to become a UI/UX designer:
-
----
-
-## What is UI/UX Design [plausible, p=0.53]^(3)?
-Before diving in, let's quickly clarify the two terms:
-
-* **UX (User Experience) Design:** Focuses on the overall experience a user has with a product or service [plausible, p=0.55]^(4). It's about understanding user needs, pain points, and behaviors to create a seamless, efficient, and satisfying journey [plausible, p=0.62]^(5). UX designers conduct research, create user flows, wireframes, and prototypes, and test designs [plausible, p=0.61]^(6).
-* **UI (User Interface) Design:** Focuses on the visual and interactive elements of a product [plausible, p=0.60]^(7). It's about how a product looks and feels [plausible, p=0.56]^(8). UI designers work on typography, color palettes, buttons, icons, and layouts.
-
----
-
-## The Path to Becoming a UI/UX Designer
-
-**Here's a step-by-step roadmap:**
-
-### Step 1: Understand the Fundamentals & Principles
-
-Start by building a strong theoretical foundation [speculative, p=0.58]^(11).
-
-* **Human-Centered Design (HCD) & Design Thinking:** Learn these methodologies that put the user at the center of the design process [speculative, p=0.63]^(12).
-* **UX Principles:** Usability, accessibility, information architecture, interaction design, user psychology (e.g., Hick's Law, Fitts's Law) [speculative, p=0.54]^(13).
-* **UI Principles:** Visual hierarchy, typography, color theory, layout, grid systems, iconography, consistency [speculative, p=0.56]^(14).
-* **User Research Methods:** Learn about interviews, surveys, usability testing, card sorting, competitive analysis, and persona creation [plausible, p=0.57]^(15).
-* **Interaction Design:** How users interact with the interface (gestures, animations, feedback) [speculative, p=0.54]^(16).
-
-**Resources for Learning:**
-
-* **Online Courses:**
-* Google UX Design Professional Certificate (Coursera)
-* Interaction Design Foundation (IDF) courses
-* Udemy, edX, Coursera, Skillshare (search for UI/UX, Figma, Design Thinking)
-* **Books:**
-* "Don't Make Me Think, Revisited" by Steve Krug
-* "The Design of Everyday Things" by Don Norman
-* "Refactoring UI" by Adam Wathan & Steve Schoger
-* **Blogs & Articles:**
-* Nielsen Norman Group (NN/g)
-* Smashing Magazine
-* Medium (many design publications)`;
-
-const JAVA = `**Java Island** is one of the major islands of Indonesia, located in Southeast Asia, between Sumatra to the west and Bali to the east [plausible, p=0.42]^(1). It is renowned for being:
-
-1 [speculative, p=0.58]^(2). **The Most Populous Island in the World:** With over 150 million people, Java is incredibly densely populated [speculative, p=0.41]^(3). It's home to roughly 60% of Indonesia's total population [plausible, p=0.57]^(4). 2 [plausible, p=0.38]^(5). **Home to Jakarta:** The capital city of Indonesia, Jakarta, is located on Java's northwest coast, making the island the political and economic heart of the nation [likely, p=0.74]^(6). 3 [plausible, p=0.38]^(7). **Geographically Diverse and Volcanic:** A chain of volcanoes runs along its spine, making the island highly fertile [likely, p=0.75]^(8). Its landscape varies from mountainous regions and tropical rainforests to coastal plains [plausible, p=0.60]^(9). 4 [plausible, p=0.38]^(10). **Rich in Culture and History:** Java has been home to powerful Hindu-Buddhist kingdoms that left behind magnificent temples such as Borobudur and Prambanan [plausible, p=0.71]^(11).`;
-
-const GAOGAO = `Gaogao Asia, more formally known as **Gaogao (Shanghai) Investment Management Co., Ltd.**, is a **private equity and venture capital firm** based in Shanghai, China [plausible, p=0.50]^(1). It focuses on investing in **growth-stage companies** across various sectors, primarily within **China and the broader Asian market** [speculative, p=0.63]^(2). Key characteristics and focus areas:
-
-* **Investment Strategy:** They typically invest in companies with strong growth potential, aiming to create long-term value through strategic partnerships and operational improvements [uncertain, p=0.73]^(3). * **Sectors:** Their investments span diverse industries, often including technology, healthcare, advanced manufacturing, consumer goods, new materials, and other high-growth sectors [plausible, p=0.47]^(4). * **Geographic Focus:** While based in Shanghai, their investment scope extends across Asia, with a strong emphasis on the Chinese market [speculative, p=0.66]^(5). * **Goal:** To generate attractive returns for investors by identifying and nurturing promising companies [insufficient-info, p=0.88]^(6).
-
-In essence, Gaogao Asia is a **growth-focused investment firm** operating primarily in the dynamic **Chinese and broader Asian market** [plausible, p=0.55]^(7).`;
-
-
-export default function App() {
-  const [tab, setTab] = React.useState("uiux");
-  const samples = { uiux: UIUX, java: JAVA, gaogao: GAOGAO };
-  const questions = { uiux: "how to be ui/ux designer?", java: "what is java island?", gaogao: "what is gaogao asia?" };
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", paddingBottom: "100px" }}>
-
-      {/* Header */}
-      <div style={{ width: "100%", maxWidth: "740px", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderBottom: "1px solid #e8eaed" }}>
-        <span style={{ fontWeight: 700, fontSize: "15px", color: "#1a1a1a", letterSpacing: "-0.02em" }}>
-          <span style={{ opacity: 0.25, fontWeight: 400 }}>/// </span>human4human
-        </span>
-        <span style={{ fontSize: "13px", color: "#5f6368", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
-          <span style={{ fontSize: "16px" }}>📖</span> Guide
-        </span>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: "8px", padding: "14px 24px 0", width: "100%", maxWidth: "740px" }}>
-        {[["uiux", "UI/UX Guide"], ["java", "Java Island"], ["gaogao", "Gaogao Asia"]].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{
-            padding: "6px 14px", borderRadius: "999px",
-            border: `1px solid ${tab === id ? "#1a1a1a" : "#e8eaed"}`,
-            background: tab === id ? "#1a1a1a" : "#fff",
-            color: tab === id ? "#fff" : "#5f6368",
-            fontSize: "13px", fontWeight: 500, cursor: "pointer",
-            transition: "all 0.15s",
-          }}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Chat bubble */}
-      <div style={{ width: "100%", maxWidth: "740px", padding: "20px 24px 0", display: "flex", justifyContent: "flex-end" }}>
-        <div style={{
-          background: "#EDE7F6", color: "#1a1a1a",
-          padding: "12px 18px", borderRadius: "20px 20px 4px 20px",
-          fontSize: "15px", fontWeight: 500, maxWidth: "65%"
-        }}>
-          {questions[tab]}
-        </div>
-      </div>
-
-      {/* AI Response */}
-      <div style={{ width: "100%", maxWidth: "740px", padding: "24px 24px 0" }}>
-        <AnnotatedText text={samples[tab]} />
-      </div>
-
-      {/* Input bar */}
-      <div style={{
-        position: "fixed", bottom: 0, left: 0, right: 0,
-        background: "rgba(255,255,255,0.96)", backdropFilter: "blur(12px)",
-        borderTop: "1px solid #e8eaed", padding: "12px 24px",
-        display: "flex", justifyContent: "center",
-      }}>
-        <div style={{
-          width: "100%", maxWidth: "740px", display: "flex", alignItems: "center",
-          gap: "12px", background: "#f8f9fa", borderRadius: "24px",
-          padding: "10px 16px", border: "1px solid #e8eaed",
-        }}>
-          <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "linear-gradient(135deg, #a78bfa, #60a5fa)", flexShrink: 0 }} />
-          <span style={{ flex: 1, color: "#9aa0a6", fontSize: "15px" }}>try to ask me anything!</span>
-          <div style={{
-            width: "32px", height: "32px", borderRadius: "50%", background: "#1a1a1a",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#fff", fontSize: "14px", cursor: "pointer",
-          }}>↑</div>
-        </div>
-      </div>
-
-    </div>
-  );
-}
